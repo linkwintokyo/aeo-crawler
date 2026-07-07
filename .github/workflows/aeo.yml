@@ -1,0 +1,53 @@
+name: AEO Crawl
+
+# 検証中は手動実行(workflow_dispatch)。安定したら schedule のコメントを外す。
+on:
+  workflow_dispatch:
+    inputs:
+      keyword:
+        description: 'テスト用キーワード'
+        required: false
+        default: '新宿で不妊鍼といえば'
+      domain:
+        description: 'テスト用 自社ドメイン'
+        required: false
+        default: 'soara-sinkyu.com'
+  # schedule:
+  #   - cron: '0 20 * * *'   # 毎日 05:00 JST (UTC20:00)
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm init -y
+          npm install playwright@1.48.0
+          npx playwright install --with-deps chromium
+
+      - name: Run single-keyword AIO test
+        run: |
+          node crawl.mjs \
+            --keyword "${{ github.event.inputs.keyword }}" \
+            --domain "${{ github.event.inputs.domain }}" \
+            --out result.json \
+            --shot shot.png
+
+      - name: Show result
+        run: cat result.json
+
+      - name: Upload artifacts (result + screenshot)
+        uses: actions/upload-artifact@v4
+        with:
+          name: aeo-result
+          path: |
+            result.json
+            shot.png
+          if-no-files-found: warn
